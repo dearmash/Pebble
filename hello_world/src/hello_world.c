@@ -2,6 +2,15 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
+#define min(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
 
 #define MY_UUID { 0x90, 0x55, 0xDE, 0x3D, 0x8F, 0x8B, 0x43, 0x74, 0x94, 0x34, 0x1D, 0x46, 0xC9, 0xBE, 0xFF, 0xBD }
 PBL_APP_INFO(MY_UUID,
@@ -28,6 +37,8 @@ TextLayer hello_layer;
 Layer time_layer;
 
 Layer animation_layer;
+
+AppContextRef context;
 
 // Definition of the shapes of the numbers
 
@@ -110,8 +121,8 @@ void draw_num(GContext *ctx, unsigned short x, unsigned short y, unsigned short 
 // Handling of the particles that get generated
 
 typedef struct {
-  short x, y;
-  short dx, dy;
+  float x, y;
+  float dx, dy;
 } Particle;
 
 #define MAX_PARTICLES 100
@@ -124,7 +135,9 @@ typedef struct {
 
 ParticleQ particles;
 
-Animation particle_animation;
+AppTimerHandle particle_timer_handle = APP_TIMER_INVALID_HANDLE;
+
+#define COOKIE_PARTICLE_TIMER 1
 
 void particle_q_push(Particle p) {
 
@@ -138,44 +151,35 @@ void particle_q_push(Particle p) {
   particles.contents[new_index] = p;
   particles.count++;
 
-  // TODO: This doesn't work... why?
-  // animation_schedule(&particle_animation);
-
+  if(particle_timer_handle == APP_TIMER_INVALID_HANDLE)
+    particle_timer_handle = app_timer_send_event(context, 20, COOKIE_PARTICLE_TIMER);
 }
 
-void particle_p_pop() {
+void push_popped_particles(unsigned short x, unsigned short y, short prevNumber, short currentNumber) {
 
-  if(particles.count <= 0) {
-    return;
+  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Popping %u to %u", prevNumber, currentNumber);
+
+  for(int i=0; i<NUM_WIDTH && numbers[prevNumber][i] != -1; i++) {
+
+    bool found = false;
+    for(int j=0; j<NUM_WIDTH && numbers[currentNumber][j] != -1; j++) {
+      if(numbers[prevNumber][i] == numbers[currentNumber][j]) {
+        found = true;
+        break;
+      }
+    }
+
+    if(!found) {
+      // APP_LOG(APP_LOG_LEVEL_DEBUG, "%u is missing", numbers[prevNumber][i]);
+      
+      int dx = x + (numbers[prevNumber][i] % 4) * DOT_PITCH;
+      int dy = y + (numbers[prevNumber][i] / 4) * DOT_PITCH;
+
+      particle_q_push((Particle) {dx, dy, rand()%10-5, rand()%10-6});
+      //particle_q_push((Particle) {dx, dy, 0, 0});
+      
+    }
   }
-
-  particles.front++;
-  particles.count--;
-
-  if(particles.count == 0) {
-    // TODO: This doesn't work... why?
-    // animation_unschedule(&particle_animation);
-  }
-
-}
-
-// Particle animation
-
-void particle_animation_setup(struct Animation *animation) {
-}
-
-void particle_animation_teardown(struct Animation *animation) {
-  // At the end of animation, clear the Q
-  particles.count = 0;
-}
-
-void particle_animation_update(struct Animation *animation, const uint32_t time_normalized) {
-  for(int i=0; i<particles.count; i++) {
-    Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
-    p->x += p->dx;
-    p->y += p->dy;
-  }
-
 }
 
 // Pebble drawing callbacks
@@ -201,12 +205,9 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   draw_num(ctx, 81, 60, t.tm_min/10);
   draw_num(ctx, 114, 60, t.tm_min%10);
 
-  if(t.tm_sec%2==0) {
+  if(t.tm_sec%2 == 0) {
     draw_dot(ctx, 69, 74);
     draw_dot(ctx, 69, 88);
-  } else {
-    particle_q_push((Particle) {69, 74, rand()%4+1, rand()%4+1});
-    particle_q_push((Particle) {69, 88, rand()%4+1, rand()%4+1});
   }
 
   draw_num(ctx, 42, 114, t.tm_sec/10);
@@ -215,6 +216,17 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
+
+  if(t->tick_time->tm_sec%2 == 1) {
+    particle_q_push((Particle) {69, 74, rand()%10-5, rand()%10-6});
+    particle_q_push((Particle) {69, 88, rand()%10-5, rand()%10-6});
+  }
+
+  push_popped_particles(75, 114, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
+
+  if(t->tick_time->tm_sec%10 == 0) {
+    push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+  }
 
   layer_mark_dirty(&time_layer);
 
@@ -243,22 +255,43 @@ void handle_init(AppContextRef ctx) {
   animation_layer.update_proc = &animation_layer_update_callback;
   layer_add_child(&window.layer, &animation_layer);
 
-  AnimationImplementation anImp = {
-    .setup = &particle_animation_setup,
-    .teardown = &particle_animation_teardown,
-    .update = &particle_animation_update
-  };
+  context = ctx;
+}
 
-  animation_init(&particle_animation);
-  animation_set_duration(&particle_animation, 1000);
-  animation_set_implementation(&particle_animation, &anImp);
+void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
+  if(cookie == COOKIE_PARTICLE_TIMER) {
+    bool keepGoing = false;
+    for(int i=0; i<particles.count; i++) {
+      Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
+      p->x += p->dx;
+      p->y += p->dy;
 
+      p->x = max(0, min(p->x, 144-DOT_PITCH));
+      p->y = max(0, p->y);
+
+      p->dy += 0.4;
+
+      if(p->y <= 178) {
+        keepGoing = true;
+      }
+    }
+
+    layer_mark_dirty(&animation_layer);
+
+    if(keepGoing) {
+      particle_timer_handle = app_timer_send_event(context, 20, COOKIE_PARTICLE_TIMER);
+    } else {
+      particle_timer_handle = APP_TIMER_INVALID_HANDLE;
+      particles.count = 0;
+    }
+  }
 }
 
 void pbl_main(void *params) {
 
   PebbleAppHandlers handlers = {
     .init_handler = &handle_init,
+    .timer_handler = &handle_timer,
 
     .tick_info = {
       .tick_handler = &handle_second_tick,
