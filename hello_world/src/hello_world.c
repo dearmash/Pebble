@@ -31,6 +31,8 @@ PBL_APP_INFO(MY_UUID,
 
 #define SHOW_SECONDS true
 
+#define POP_NUMBERS false
+
 Window window;
 
 /*
@@ -43,7 +45,7 @@ AppContextRef context;
 
 // Definition of the shapes of the numbers
 
-#define NUM_LENGTH 10
+#define NUM_LENGTH 11
 #define NUM_WIDTH 21
 
 const short numbers[NUM_LENGTH][NUM_WIDTH] = {
@@ -87,6 +89,10 @@ const short numbers[NUM_LENGTH][NUM_WIDTH] = {
   {
     0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15, 19, 23, 24, 25, 26, 27, -1
   },
+  // empty
+  {
+    -1
+  }
 };
 
 // Drawing primitives on the screen
@@ -153,11 +159,13 @@ void particle_q_push(Particle p) {
     p.active = 2;
   }
 
-  int LO = -5;
-  int HI = 3;
+  if(POP_NUMBERS) {
+    int LO = -5;
+    int HI = 3;
 
-  p.dx = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
-  p.dy = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+    p.dx = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+    p.dy = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+  }
 
   new_index = (particles.front + particles.count) % MAX_PARTICLES;
   particles.contents[new_index] = p;
@@ -257,34 +265,50 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
     push_popped_particles(75, 114, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
   }
 
-  if(t->tick_time->tm_sec%10 == 0) {
-    if(SHOW_SECONDS) {
-      push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
-    }
-
-    if(t->tick_time->tm_sec/10 == 0) {
-      push_popped_particles(114, 60, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
-
-      if(t->tick_time->tm_min%10 == 0) {
-        push_popped_particles(81, 60, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
-
-        if(t->tick_time->tm_min/10 == 0) {
-
-          unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
-          push_popped_particles(36, 60, (display_hour+9)%10, display_hour%10);
-
-          if(display_hour%10 == 0) {
-            push_popped_particles(3, 60, (display_hour/10 + 9)%10, display_hour/10);
-
-            if(t->tick_time->tm_hour/10 == 0) {
-              // Change the date if I'm ever that good...
-            }
-          }
-        }
-      }
-    }
+  if(t->tick_time->tm_sec%10 != 0) {
+    goto end;
+  }
+  if(SHOW_SECONDS) {
+    push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
   }
 
+  if(t->tick_time->tm_sec/10 != 0) {
+    goto end;
+  }
+  push_popped_particles(114, 60, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
+
+  if(t->tick_time->tm_min%10 != 0) {
+    goto end;
+  }
+  push_popped_particles(81, 60, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
+
+  if(t->tick_time->tm_min/10 != 0) {
+    goto end;
+  }
+
+  unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
+
+  if(clock_is_24h_style() || display_hour != 1) {
+    push_popped_particles(36, 60, (display_hour+9)%10, display_hour%10);
+  } else {
+    push_popped_particles(36, 60, 2, 1);
+  }
+
+  if(clock_is_24h_style() && t->tick_time->tm_hour%10 != 0) {
+    goto end;
+  }
+
+  if(!clock_is_24h_style() && display_hour != 1) {
+    goto end;
+  }
+
+  if(clock_is_24h_style()) {
+    push_popped_particles(3, 60, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
+  } else {
+    push_popped_particles(3, 60, 1, 10);  // Hack to get the full digit to drop
+  }
+
+end:
   layer_mark_dirty(&time_layer);
 
 }
