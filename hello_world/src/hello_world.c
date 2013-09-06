@@ -29,10 +29,13 @@ PBL_APP_INFO(MY_UUID,
 #define COLOR_BACKGROUND GColorBlack
 #endif
 
+#define SHOW_SECONDS true
 
 Window window;
 
+/*
 TextLayer hello_layer;
+*/
 
 Layer time_layer;
 
@@ -216,16 +219,20 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
 
   unsigned short display_hour = get_display_hour(t.tm_hour);
 
-  draw_num(ctx, 3, 60, display_hour/10);
+  if(display_hour/10 > 0 || clock_is_24h_style()) {
+    draw_num(ctx, 3, 60, display_hour/10);
+  }
   draw_num(ctx, 36, 60, display_hour%10);
 
   draw_num(ctx, 81, 60, t.tm_min/10);
   draw_num(ctx, 114, 60, t.tm_min%10);
 
-  draw_num(ctx, 42, 114, t.tm_sec/10);
-  draw_num(ctx, 75, 114, t.tm_sec%10);
+  if(SHOW_SECONDS) {
+    draw_num(ctx, 42, 114, t.tm_sec/10);
+    draw_num(ctx, 75, 114, t.tm_sec%10);
+  }
 
-  if(stored_time_no_flickering.tm_sec % 2 == 0) {
+  if(stored_time_no_flickering.tm_sec % 4 < 2) {
     draw_dot(ctx, 69, 74);
     draw_dot(ctx, 69, 88);
   }
@@ -241,15 +248,19 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
 
   get_time(&stored_time_no_flickering);  
 
-  if(stored_time_no_flickering.tm_sec % 2 != 0) {
+  if(stored_time_no_flickering.tm_sec % 4 == 2) {
     particle_q_push((Particle) {.x = 69, .y = 74});
     particle_q_push((Particle) {.x = 69, .y = 88});
   }
 
-  push_popped_particles(75, 114, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
+  if(SHOW_SECONDS) {
+    push_popped_particles(75, 114, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
+  }
 
   if(t->tick_time->tm_sec%10 == 0) {
-    push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+    if(SHOW_SECONDS) {
+      push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+    }
 
     if(t->tick_time->tm_sec/10 == 0) {
       push_popped_particles(114, 60, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
@@ -287,6 +298,7 @@ void handle_init(AppContextRef ctx) {
 
   window_set_background_color(&window, COLOR_BACKGROUND);
 
+  /*
   text_layer_init(&hello_layer, GRect(0, 0, 144, 30));
   text_layer_set_text_alignment(&hello_layer, GTextAlignmentCenter);
   text_layer_set_text_color(&hello_layer, COLOR_FOREGROUND);
@@ -294,6 +306,7 @@ void handle_init(AppContextRef ctx) {
   text_layer_set_text(&hello_layer, "Hello world");
   text_layer_set_font(&hello_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
   layer_add_child(&window.layer, &hello_layer.layer);
+  */
 
   layer_init(&time_layer, window.layer.frame);
   time_layer.update_proc = &time_layer_update_callback;
@@ -320,7 +333,11 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
       p->x += p->dx;
       p->y += p->dy;
 
-      p->x = max(0, min(p->x, 144-DOT_PITCH));
+      if(p->x < 0 || p->x >= 144 - DOT_PITCH) {
+        p->x = max(0, min(p->x, 144-DOT_PITCH));
+        p->dx = -p->dx;
+      }
+
       p->y = max(0, p->y);
 
       p->dy += 0.3;
