@@ -36,8 +36,6 @@ TextLayer hello_layer;
 
 Layer time_layer;
 
-Layer animation_layer;
-
 AppContextRef context;
 
 // Definition of the shapes of the numbers
@@ -123,6 +121,7 @@ void draw_num(GContext *ctx, unsigned short x, unsigned short y, unsigned short 
 typedef struct {
   float x, y;
   float dx, dy;
+  int active;
 } Particle;
 
 #define MAX_PARTICLES 100
@@ -147,12 +146,24 @@ void particle_q_push(Particle p) {
     return;
   }
 
+  if(p.active == 0) {
+    p.active = 2;
+  }
+
+  int LO = -5;
+  int HI = 3;
+
+  p.dx = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+  p.dy = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+
   new_index = (particles.front + particles.count) % MAX_PARTICLES;
   particles.contents[new_index] = p;
   particles.count++;
 
-  if(particle_timer_handle == APP_TIMER_INVALID_HANDLE)
+  if(particle_timer_handle == APP_TIMER_INVALID_HANDLE) {
     particle_timer_handle = app_timer_send_event(context, 20, COOKIE_PARTICLE_TIMER);
+  }
+
 }
 
 void push_popped_particles(unsigned short x, unsigned short y, short prevNumber, short currentNumber) {
@@ -175,7 +186,7 @@ void push_popped_particles(unsigned short x, unsigned short y, short prevNumber,
       int dx = x + (numbers[prevNumber][i] % 4) * DOT_PITCH;
       int dy = y + (numbers[prevNumber][i] / 4) * DOT_PITCH;
 
-      particle_q_push((Particle) {dx, dy, rand()%10-5, rand()%10-6});
+      particle_q_push((Particle) {.x = dx, .y = dy});
       //particle_q_push((Particle) {dx, dy, 0, 0});
       
     }
@@ -184,48 +195,83 @@ void push_popped_particles(unsigned short x, unsigned short y, short prevNumber,
 
 // Pebble drawing callbacks
 
-void animation_layer_update_callback(Layer *me, GContext* ctx) {
+PblTm stored_time_no_flickering;
 
-  for(int i=0; i<particles.count; i++) {
-    Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
-    draw_dot(ctx, p->x, p->y);
+unsigned short get_display_hour(unsigned short hour) {
+
+  if (clock_is_24h_style()) {
+    return hour;
   }
+
+  unsigned short display_hour = hour % 12;
+
+  // Converts "0" to "12"
+  return display_hour ? display_hour : 12;
 
 }
 
 void time_layer_update_callback(Layer *me, GContext* ctx) {
 
-  PblTm t;
+  PblTm t = stored_time_no_flickering;
 
-  get_time(&t);
+  unsigned short display_hour = get_display_hour(t.tm_hour);
 
-  draw_num(ctx, 3, 60, t.tm_hour/10);
-  draw_num(ctx, 36, 60, t.tm_hour%10);
+  draw_num(ctx, 3, 60, display_hour/10);
+  draw_num(ctx, 36, 60, display_hour%10);
 
   draw_num(ctx, 81, 60, t.tm_min/10);
   draw_num(ctx, 114, 60, t.tm_min%10);
 
-  if(t.tm_sec%2 == 0) {
+  draw_num(ctx, 42, 114, t.tm_sec/10);
+  draw_num(ctx, 75, 114, t.tm_sec%10);
+
+  if(stored_time_no_flickering.tm_sec % 2 == 0) {
     draw_dot(ctx, 69, 74);
     draw_dot(ctx, 69, 88);
   }
 
-  draw_num(ctx, 42, 114, t.tm_sec/10);
-  draw_num(ctx, 75, 114, t.tm_sec%10);
+  for(int i=0; i<particles.count; i++) {
+    Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
+    draw_dot(ctx, p->x, p->y);
+  }  
 
 }
 
 void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
 
-  if(t->tick_time->tm_sec%2 == 1) {
-    particle_q_push((Particle) {69, 74, rand()%10-5, rand()%10-6});
-    particle_q_push((Particle) {69, 88, rand()%10-5, rand()%10-6});
+  get_time(&stored_time_no_flickering);  
+
+  if(stored_time_no_flickering.tm_sec % 2 != 0) {
+    particle_q_push((Particle) {.x = 69, .y = 74});
+    particle_q_push((Particle) {.x = 69, .y = 88});
   }
 
   push_popped_particles(75, 114, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
 
   if(t->tick_time->tm_sec%10 == 0) {
     push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+
+    if(t->tick_time->tm_sec/10 == 0) {
+      push_popped_particles(114, 60, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
+
+      if(t->tick_time->tm_min%10 == 0) {
+        push_popped_particles(81, 60, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
+
+        if(t->tick_time->tm_min/10 == 0) {
+
+          unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
+          push_popped_particles(36, 60, (display_hour+9)%10, display_hour%10);
+
+          if(display_hour%10 == 0) {
+            push_popped_particles(3, 60, (display_hour/10 + 9)%10, display_hour/10);
+
+            if(t->tick_time->tm_hour/10 == 0) {
+              // Change the date if I'm ever that good...
+            }
+          }
+        }
+      }
+    }
   }
 
   layer_mark_dirty(&time_layer);
@@ -233,6 +279,8 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
 }
 
 void handle_init(AppContextRef ctx) {
+
+  get_time(&stored_time_no_flickering);  
 
   window_init(&window, "Hello world");
   window_stack_push(&window, true /* Animated */);
@@ -251,32 +299,38 @@ void handle_init(AppContextRef ctx) {
   time_layer.update_proc = &time_layer_update_callback;
   layer_add_child(&window.layer, &time_layer);
 
-  layer_init(&animation_layer, window.layer.frame);
-  animation_layer.update_proc = &animation_layer_update_callback;
-  layer_add_child(&window.layer, &animation_layer);
-
   context = ctx;
+
 }
 
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
+  
   if(cookie == COOKIE_PARTICLE_TIMER) {
+
     bool keepGoing = false;
     for(int i=0; i<particles.count; i++) {
       Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
+
+      if(p->active > 0) {
+        p->active--;
+        keepGoing = true;
+        continue;
+      }
+
       p->x += p->dx;
       p->y += p->dy;
 
       p->x = max(0, min(p->x, 144-DOT_PITCH));
       p->y = max(0, p->y);
 
-      p->dy += 0.4;
+      p->dy += 0.3;
 
-      if(p->y <= 178) {
+      if(p->y < 168) {
         keepGoing = true;
       }
     }
 
-    layer_mark_dirty(&animation_layer);
+    layer_mark_dirty(&time_layer);
 
     if(keepGoing) {
       particle_timer_handle = app_timer_send_event(context, 20, COOKIE_PARTICLE_TIMER);
@@ -285,6 +339,7 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
       particles.count = 0;
     }
   }
+
 }
 
 void pbl_main(void *params) {
