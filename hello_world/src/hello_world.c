@@ -29,9 +29,18 @@ PBL_APP_INFO(MY_UUID,
 #define COLOR_BACKGROUND GColorBlack
 #endif
 
-#define SHOW_SECONDS true
+#define SHOW_SECONDS
 
-#define POP_NUMBERS false
+#ifdef SHOW_SECONDS
+// Do I want to vertically center with seconds?
+//#define T_OFFSET 33
+//#define S_OFFSET 87
+//#else
+#define T_OFFSET 60
+#define S_OFFSET 114
+#endif
+
+#define POP_NUMBERS
 
 Window window;
 
@@ -159,13 +168,13 @@ void particle_q_push(Particle p) {
     p.active = 2;
   }
 
-  if(POP_NUMBERS) {
-    int LO = -5;
-    int HI = 3;
+#ifdef POP_NUMBERS
+  int LO = -5;
+  int HI = 3;
 
-    p.dx = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
-    p.dy = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
-  }
+  p.dx = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+  p.dy = LO + (float)rand()/((float)RAND_MAX/(HI-LO));
+#endif
 
   new_index = (particles.front + particles.count) % MAX_PARTICLES;
   particles.contents[new_index] = p;
@@ -198,7 +207,6 @@ void push_popped_particles(unsigned short x, unsigned short y, short prevNumber,
       int dy = y + (numbers[prevNumber][i] / 4) * DOT_PITCH;
 
       particle_q_push((Particle) {.x = dx, .y = dy});
-      //particle_q_push((Particle) {dx, dy, 0, 0});
       
     }
   }
@@ -228,21 +236,21 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   unsigned short display_hour = get_display_hour(t.tm_hour);
 
   if(display_hour/10 > 0 || clock_is_24h_style()) {
-    draw_num(ctx, 3, 60, display_hour/10);
+    draw_num(ctx, 3, T_OFFSET, display_hour/10);
   }
-  draw_num(ctx, 36, 60, display_hour%10);
+  draw_num(ctx, 36, T_OFFSET, display_hour%10);
 
-  draw_num(ctx, 81, 60, t.tm_min/10);
-  draw_num(ctx, 114, 60, t.tm_min%10);
+  draw_num(ctx, 81, T_OFFSET, t.tm_min/10);
+  draw_num(ctx, 114, T_OFFSET, t.tm_min%10);
 
-  if(SHOW_SECONDS) {
-    draw_num(ctx, 42, 114, t.tm_sec/10);
-    draw_num(ctx, 75, 114, t.tm_sec%10);
-  }
+#ifdef SHOW_SECONDS
+    draw_num(ctx, 42, S_OFFSET, t.tm_sec/10);
+    draw_num(ctx, 75, S_OFFSET, t.tm_sec%10);
+#endif
 
   if(stored_time_no_flickering.tm_sec % 4 < 2) {
-    draw_dot(ctx, 69, 74);
-    draw_dot(ctx, 69, 88);
+    draw_dot(ctx, 69, T_OFFSET + 14);
+    draw_dot(ctx, 69, T_OFFSET + 28);
   }
 
   for(int i=0; i<particles.count; i++) {
@@ -257,30 +265,31 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   get_time(&stored_time_no_flickering);  
 
   if(stored_time_no_flickering.tm_sec % 4 == 2) {
-    particle_q_push((Particle) {.x = 69, .y = 74});
-    particle_q_push((Particle) {.x = 69, .y = 88});
+    particle_q_push((Particle) {.x = 69, .y = T_OFFSET + 14});
+    particle_q_push((Particle) {.x = 69, .y = T_OFFSET + 28});
   }
 
-  if(SHOW_SECONDS) {
-    push_popped_particles(75, 114, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
-  }
+#ifdef SHOW_SECONDS
+    push_popped_particles(75, S_OFFSET, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
+#endif
 
   if(t->tick_time->tm_sec%10 != 0) {
     goto end;
   }
-  if(SHOW_SECONDS) {
-    push_popped_particles(42, 114, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
-  }
+
+#ifdef SHOW_SECONDS
+    push_popped_particles(42, S_OFFSET, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+#endif
 
   if(t->tick_time->tm_sec/10 != 0) {
     goto end;
   }
-  push_popped_particles(114, 60, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
+  push_popped_particles(114, T_OFFSET, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
 
   if(t->tick_time->tm_min%10 != 0) {
     goto end;
   }
-  push_popped_particles(81, 60, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
+  push_popped_particles(81, T_OFFSET, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
 
   if(t->tick_time->tm_min/10 != 0) {
     goto end;
@@ -289,9 +298,9 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
 
   if(clock_is_24h_style() || display_hour != 1) {
-    push_popped_particles(36, 60, (display_hour+9)%10, display_hour%10);
+    push_popped_particles(36, T_OFFSET, (display_hour+9)%10, display_hour%10);
   } else {
-    push_popped_particles(36, 60, 2, 1);
+    push_popped_particles(36, T_OFFSET, 2, 1);
   }
 
   if(clock_is_24h_style() && t->tick_time->tm_hour%10 != 0) {
@@ -303,9 +312,9 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   }
 
   if(clock_is_24h_style()) {
-    push_popped_particles(3, 60, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
+    push_popped_particles(3, T_OFFSET, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
   } else {
-    push_popped_particles(3, 60, 1, 10);  // Hack to get the full digit to drop
+    push_popped_particles(3, T_OFFSET, 1, 10);  // Hack to get the full digit to drop
   }
 
 end:
