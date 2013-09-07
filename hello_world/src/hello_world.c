@@ -33,9 +33,9 @@ PBL_APP_INFO(MY_UUID,
 
 #ifdef SHOW_SECONDS
 // Do I want to vertically center with seconds?
-//#define T_OFFSET 33
-//#define S_OFFSET 87
-//#else
+#define T_OFFSET 33
+#define S_OFFSET 87
+#else
 #define T_OFFSET 60
 #define S_OFFSET 114
 #endif
@@ -43,10 +43,6 @@ PBL_APP_INFO(MY_UUID,
 #define POP_NUMBERS
 
 Window window;
-
-/*
-TextLayer hello_layer;
-*/
 
 Layer time_layer;
 
@@ -212,10 +208,6 @@ void push_popped_particles(unsigned short x, unsigned short y, short prevNumber,
   }
 }
 
-// Pebble drawing callbacks
-
-PblTm stored_time_no_flickering;
-
 unsigned short get_display_hour(unsigned short hour) {
 
   if (clock_is_24h_style()) {
@@ -229,6 +221,53 @@ unsigned short get_display_hour(unsigned short hour) {
 
 }
 
+// Pebble drawing callbacks
+
+PblTm stored_time_no_flickering;
+
+// The different widths require a little fudge to ensure they're centered
+// Time format     - Columns - Total width - Offset to center
+// 24h             - 26 7 26 7 5 7 26 7 26 - 137 - 3
+// 1               - 5 7 5 7 26 7 26 - 83 - 30
+// 2 3 4 5 6 7 8 9 - 26 7 5 7 26 7 26 - 104 - 20
+// 10 11 12        - 5 7 26 7 5 26 7 26 - 116 - 14
+
+short center_fudge;
+
+void nudge_center_fudge() {
+
+  short display_hour = get_display_hour(stored_time_no_flickering.tm_hour);
+  if(clock_is_24h_style()) {
+    if(center_fudge > 0) center_fudge--;
+    if(center_fudge < 0) center_fudge++;
+  } else if(display_hour == 1) {
+    if(center_fudge > -27) center_fudge--;
+    if(center_fudge < -27) center_fudge++;
+  } else if(display_hour < 10) {
+    if(center_fudge > -17) center_fudge--;
+    if(center_fudge < -17) center_fudge++;
+  } else {
+    if(center_fudge > -11) center_fudge--;
+    if(center_fudge < -11) center_fudge++;
+  }
+
+}
+
+void set_center_fudge() {
+
+  short display_hour = get_display_hour(stored_time_no_flickering.tm_hour);
+  if(clock_is_24h_style()) {
+    center_fudge = 0;
+  } else if(display_hour == 1) {
+    center_fudge = -27;
+  } else if(display_hour < 10) {
+    center_fudge = -17;
+  } else {
+    center_fudge = -11;
+  }
+  
+}
+
 void time_layer_update_callback(Layer *me, GContext* ctx) {
 
   PblTm t = stored_time_no_flickering;
@@ -236,12 +275,12 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   unsigned short display_hour = get_display_hour(t.tm_hour);
 
   if(display_hour/10 > 0 || clock_is_24h_style()) {
-    draw_num(ctx, 3, T_OFFSET, display_hour/10);
+    draw_num(ctx, 3 + center_fudge, T_OFFSET, display_hour/10);
   }
-  draw_num(ctx, 36, T_OFFSET, display_hour%10);
+  draw_num(ctx, 36 + center_fudge, T_OFFSET, display_hour%10);
 
-  draw_num(ctx, 81, T_OFFSET, t.tm_min/10);
-  draw_num(ctx, 114, T_OFFSET, t.tm_min%10);
+  draw_num(ctx, 81 + center_fudge, T_OFFSET, t.tm_min/10);
+  draw_num(ctx, 114 + center_fudge, T_OFFSET, t.tm_min%10);
 
 #ifdef SHOW_SECONDS
     draw_num(ctx, 42, S_OFFSET, t.tm_sec/10);
@@ -249,8 +288,8 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
 #endif
 
   if(stored_time_no_flickering.tm_sec % 4 < 2) {
-    draw_dot(ctx, 69, T_OFFSET + 14);
-    draw_dot(ctx, 69, T_OFFSET + 28);
+    draw_dot(ctx, 69 + center_fudge, T_OFFSET + 14);
+    draw_dot(ctx, 69 + center_fudge, T_OFFSET + 28);
   }
 
   for(int i=0; i<particles.count; i++) {
@@ -265,8 +304,8 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   get_time(&stored_time_no_flickering);  
 
   if(stored_time_no_flickering.tm_sec % 4 == 2) {
-    particle_q_push((Particle) {.x = 69, .y = T_OFFSET + 14});
-    particle_q_push((Particle) {.x = 69, .y = T_OFFSET + 28});
+    particle_q_push((Particle) {.x = 69 + center_fudge, .y = T_OFFSET + 14});
+    particle_q_push((Particle) {.x = 69 + center_fudge, .y = T_OFFSET + 28});
   }
 
 #ifdef SHOW_SECONDS
@@ -284,12 +323,12 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   if(t->tick_time->tm_sec/10 != 0) {
     goto end;
   }
-  push_popped_particles(114, T_OFFSET, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
+  push_popped_particles(114 + center_fudge, T_OFFSET, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
 
   if(t->tick_time->tm_min%10 != 0) {
     goto end;
   }
-  push_popped_particles(81, T_OFFSET, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
+  push_popped_particles(81 + center_fudge, T_OFFSET, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
 
   if(t->tick_time->tm_min/10 != 0) {
     goto end;
@@ -298,9 +337,9 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
 
   if(clock_is_24h_style() || display_hour != 1) {
-    push_popped_particles(36, T_OFFSET, (display_hour+9)%10, display_hour%10);
+    push_popped_particles(36 + center_fudge, T_OFFSET, (display_hour+9)%10, display_hour%10);
   } else {
-    push_popped_particles(36, T_OFFSET, 2, 1);
+    push_popped_particles(36 + center_fudge, T_OFFSET, 2, 1);
   }
 
   if(clock_is_24h_style() && t->tick_time->tm_hour%10 != 0) {
@@ -312,9 +351,9 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   }
 
   if(clock_is_24h_style()) {
-    push_popped_particles(3, T_OFFSET, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
+    push_popped_particles(3 + center_fudge, T_OFFSET, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
   } else {
-    push_popped_particles(3, T_OFFSET, 1, 10);  // Hack to get the full digit to drop
+    push_popped_particles(3 + center_fudge, T_OFFSET, 1, 10);  // Hack to get the full digit to drop
   }
 
 end:
@@ -325,21 +364,12 @@ end:
 void handle_init(AppContextRef ctx) {
 
   get_time(&stored_time_no_flickering);  
+  set_center_fudge();
 
   window_init(&window, "Hello world");
   window_stack_push(&window, true /* Animated */);
 
   window_set_background_color(&window, COLOR_BACKGROUND);
-
-  /*
-  text_layer_init(&hello_layer, GRect(0, 0, 144, 30));
-  text_layer_set_text_alignment(&hello_layer, GTextAlignmentCenter);
-  text_layer_set_text_color(&hello_layer, COLOR_FOREGROUND);
-  text_layer_set_background_color(&hello_layer, GColorClear);
-  text_layer_set_text(&hello_layer, "Hello world");
-  text_layer_set_font(&hello_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
-  layer_add_child(&window.layer, &hello_layer.layer);
-  */
 
   layer_init(&time_layer, window.layer.frame);
   time_layer.update_proc = &time_layer_update_callback;
@@ -379,6 +409,8 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
         keepGoing = true;
       }
     }
+    
+    nudge_center_fudge();
 
     layer_mark_dirty(&time_layer);
 
