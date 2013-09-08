@@ -14,12 +14,18 @@
 
 #define MY_UUID { 0x90, 0x55, 0xDE, 0x3D, 0x8F, 0x8B, 0x43, 0x74, 0x94, 0x34, 0x1D, 0x46, 0xC9, 0xBE, 0xFF, 0xBD }
 PBL_APP_INFO(MY_UUID,
-    "Hello world", "qni Enterprises",
+    "Pop Clock", "qni.me",
     1, 0, /* App version */
-    DEFAULT_MENU_ICON,
+    RESOURCE_ID_IMAGE_MENU_ICON,
     APP_INFO_WATCH_FACE);
 
+// Here's the customizations.  If you want to undefine, add "_" as a suffix
+
 #define INVERT_COLORS
+#define SHOW_SECONDS
+#define POP_NUMBERS
+
+// Code goes here
 
 #ifndef INVERT_COLORS
 #define COLOR_FOREGROUND GColorBlack
@@ -29,7 +35,6 @@ PBL_APP_INFO(MY_UUID,
 #define COLOR_BACKGROUND GColorBlack
 #endif
 
-#define SHOW_SECONDS
 
 #ifdef SHOW_SECONDS
 // Do I want to vertically center with seconds?
@@ -40,7 +45,6 @@ PBL_APP_INFO(MY_UUID,
 #define S_OFFSET 114
 #endif
 
-#define POP_NUMBERS
 
 Window window;
 
@@ -366,7 +370,7 @@ void handle_init(AppContextRef ctx) {
   get_time(&stored_time_no_flickering);  
   set_center_fudge();
 
-  window_init(&window, "Hello world");
+  window_init(&window, "Pop Clock");
   window_stack_push(&window, true /* Animated */);
 
   window_set_background_color(&window, COLOR_BACKGROUND);
