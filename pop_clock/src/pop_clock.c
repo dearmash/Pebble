@@ -22,7 +22,10 @@ PBL_APP_INFO(MY_UUID,
 // Here's the customizations.  If you want to undefine, add "_" as a suffix
 
 #define INVERT_COLORS
-#define SHOW_SECONDS
+
+#define SHOW_DATE_
+#define SHOW_SECONDS_
+
 #define POP_NUMBERS
 
 // Code goes here
@@ -36,15 +39,33 @@ PBL_APP_INFO(MY_UUID,
 #endif
 
 
+#ifdef SHOW_DATE 
 #ifdef SHOW_SECONDS
-// Do I want to vertically center with seconds?
-#define T_OFFSET 33
-#define S_OFFSET 87
+// Show both
+#define DATE_V_OFFSET 13
+#define TIME_V_OFFSET 60
+#define SECS_V_OFFSET 114
 #else
-#define T_OFFSET 60
-#define S_OFFSET 114
+// Just date
+#define DATE_V_OFFSET 37
+#define TIME_V_OFFSET 84
+#define SECS_V_OFFSET -1
+#endif
+#elif defined(SHOW_SECONDS)
+// Just seconds
+#define DATE_V_OFFSET -1
+#define TIME_V_OFFSET 37
+#define SECS_V_OFFSET 91
+#else
+// Just time
+#define DATE_V_OFFSET -1
+#define TIME_V_OFFSET 60
+#define SECS_V_OFFSET -1
 #endif
 
+short DATE_H_OFFSET = 0;
+short TIME_H_OFFSET = 0;
+short SECS_H_OFFSET = 0;
 
 Window window;
 
@@ -236,38 +257,36 @@ PblTm stored_time_no_flickering;
 // 2 3 4 5 6 7 8 9 - 26 7 5 7 26 7 26 - 104 - 20
 // 10 11 12        - 5 7 26 7 5 26 7 26 - 116 - 14
 
-short center_fudge;
-
-void nudge_center_fudge() {
+void nudge_h_offset() {
 
   short display_hour = get_display_hour(stored_time_no_flickering.tm_hour);
   if(clock_is_24h_style()) {
-    if(center_fudge > 0) center_fudge--;
-    if(center_fudge < 0) center_fudge++;
+    if(TIME_H_OFFSET > 0) TIME_H_OFFSET--;
+    if(TIME_H_OFFSET < 0) TIME_H_OFFSET++;
   } else if(display_hour == 1) {
-    if(center_fudge > -27) center_fudge--;
-    if(center_fudge < -27) center_fudge++;
+    if(TIME_H_OFFSET > -27) TIME_H_OFFSET--;
+    if(TIME_H_OFFSET < -27) TIME_H_OFFSET++;
   } else if(display_hour < 10) {
-    if(center_fudge > -17) center_fudge--;
-    if(center_fudge < -17) center_fudge++;
+    if(TIME_H_OFFSET > -17) TIME_H_OFFSET--;
+    if(TIME_H_OFFSET < -17) TIME_H_OFFSET++;
   } else {
-    if(center_fudge > -11) center_fudge--;
-    if(center_fudge < -11) center_fudge++;
+    if(TIME_H_OFFSET > -11) TIME_H_OFFSET--;
+    if(TIME_H_OFFSET < -11) TIME_H_OFFSET++;
   }
 
 }
 
-void set_center_fudge() {
+void set_h_offset() {
 
   short display_hour = get_display_hour(stored_time_no_flickering.tm_hour);
   if(clock_is_24h_style()) {
-    center_fudge = 0;
+    TIME_H_OFFSET = 0;
   } else if(display_hour == 1) {
-    center_fudge = -27;
+    TIME_H_OFFSET = -27;
   } else if(display_hour < 10) {
-    center_fudge = -17;
+    TIME_H_OFFSET = -17;
   } else {
-    center_fudge = -11;
+    TIME_H_OFFSET = -11;
   }
   
 }
@@ -279,21 +298,21 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   unsigned short display_hour = get_display_hour(t.tm_hour);
 
   if(display_hour/10 > 0 || clock_is_24h_style()) {
-    draw_num(ctx, 3 + center_fudge, T_OFFSET, display_hour/10);
+    draw_num(ctx, 3 + TIME_H_OFFSET, TIME_V_OFFSET, display_hour/10);
   }
-  draw_num(ctx, 36 + center_fudge, T_OFFSET, display_hour%10);
+  draw_num(ctx, 36 + TIME_H_OFFSET, TIME_V_OFFSET, display_hour%10);
 
-  draw_num(ctx, 81 + center_fudge, T_OFFSET, t.tm_min/10);
-  draw_num(ctx, 114 + center_fudge, T_OFFSET, t.tm_min%10);
+  draw_num(ctx, 81 + TIME_H_OFFSET, TIME_V_OFFSET, t.tm_min/10);
+  draw_num(ctx, 114 + TIME_H_OFFSET, TIME_V_OFFSET, t.tm_min%10);
 
 #ifdef SHOW_SECONDS
-    draw_num(ctx, 42, S_OFFSET, t.tm_sec/10);
-    draw_num(ctx, 75, S_OFFSET, t.tm_sec%10);
+    draw_num(ctx, 42, SECS_V_OFFSET, t.tm_sec/10);
+    draw_num(ctx, 75, SECS_V_OFFSET, t.tm_sec%10);
 #endif
 
   if(stored_time_no_flickering.tm_sec % 4 < 2) {
-    draw_dot(ctx, 69 + center_fudge, T_OFFSET + 14);
-    draw_dot(ctx, 69 + center_fudge, T_OFFSET + 28);
+    draw_dot(ctx, 69 + TIME_H_OFFSET, TIME_V_OFFSET + 14);
+    draw_dot(ctx, 69 + TIME_H_OFFSET, TIME_V_OFFSET + 28);
   }
 
   for(int i=0; i<particles.count; i++) {
@@ -308,12 +327,12 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   get_time(&stored_time_no_flickering);  
 
   if(stored_time_no_flickering.tm_sec % 4 == 2) {
-    particle_q_push((Particle) {.x = 69 + center_fudge, .y = T_OFFSET + 14});
-    particle_q_push((Particle) {.x = 69 + center_fudge, .y = T_OFFSET + 28});
+    particle_q_push((Particle) {.x = 69 + TIME_H_OFFSET, .y = TIME_V_OFFSET + 14});
+    particle_q_push((Particle) {.x = 69 + TIME_H_OFFSET, .y = TIME_V_OFFSET + 28});
   }
 
 #ifdef SHOW_SECONDS
-    push_popped_particles(75, S_OFFSET, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
+    push_popped_particles(75, SECS_V_OFFSET, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
 #endif
 
   if(t->tick_time->tm_sec%10 != 0) {
@@ -321,18 +340,18 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   }
 
 #ifdef SHOW_SECONDS
-    push_popped_particles(42, S_OFFSET, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+    push_popped_particles(42, SECS_V_OFFSET, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
 #endif
 
   if(t->tick_time->tm_sec/10 != 0) {
     goto end;
   }
-  push_popped_particles(114 + center_fudge, T_OFFSET, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
+  push_popped_particles(114 + TIME_H_OFFSET, TIME_V_OFFSET, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
 
   if(t->tick_time->tm_min%10 != 0) {
     goto end;
   }
-  push_popped_particles(81 + center_fudge, T_OFFSET, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
+  push_popped_particles(81 + TIME_H_OFFSET, TIME_V_OFFSET, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
 
   if(t->tick_time->tm_min/10 != 0) {
     goto end;
@@ -341,9 +360,9 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
 
   if(clock_is_24h_style() || display_hour != 1) {
-    push_popped_particles(36 + center_fudge, T_OFFSET, (display_hour+9)%10, display_hour%10);
+    push_popped_particles(36 + TIME_H_OFFSET, TIME_V_OFFSET, (display_hour+9)%10, display_hour%10);
   } else {
-    push_popped_particles(36 + center_fudge, T_OFFSET, 2, 1);
+    push_popped_particles(36 + TIME_H_OFFSET, TIME_V_OFFSET, 2, 1);
   }
 
   if(clock_is_24h_style() && t->tick_time->tm_hour%10 != 0) {
@@ -355,9 +374,9 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   }
 
   if(clock_is_24h_style()) {
-    push_popped_particles(3 + center_fudge, T_OFFSET, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
+    push_popped_particles(3 + TIME_H_OFFSET, TIME_V_OFFSET, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
   } else {
-    push_popped_particles(3 + center_fudge, T_OFFSET, 1, 10);  // Hack to get the full digit to drop
+    push_popped_particles(3 + TIME_H_OFFSET, TIME_V_OFFSET, 1, 10);  // Hack to get the full digit to drop
   }
 
 end:
@@ -368,7 +387,7 @@ end:
 void handle_init(AppContextRef ctx) {
 
   get_time(&stored_time_no_flickering);  
-  set_center_fudge();
+  set_h_offset();
 
   window_init(&window, "Pop Clock");
   window_stack_push(&window, true /* Animated */);
@@ -401,7 +420,7 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
       p->y += p->dy;
 
       if(p->x < 0 || p->x >= 144 - DOT_PITCH) {
-        p->x = max(0, min(p->x, 144-DOT_PITCH));
+        p->x = max(0, min(p->x, 144 - DOT_PITCH));
         p->dx = -p->dx;
       }
 
@@ -414,7 +433,7 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
       }
     }
     
-    nudge_center_fudge();
+    nudge_h_offset();
 
     layer_mark_dirty(&time_layer);
 
