@@ -1,32 +1,21 @@
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
+#include <pebble.h>
 
 #define max(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a > _b ? _a : _b; })
+  ({ __typeof__ (a) _a = (a); \
+   __typeof__ (b) _b = (b); \
+   _a > _b ? _a : _b; })
 
 #define min(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a < _b ? _a : _b; })
+  ({ __typeof__ (a) _a = (a); \
+   __typeof__ (b) _b = (b); \
+   _a < _b ? _a : _b; })
 
-#define MY_UUID { 0x90, 0x55, 0xDE, 0x3D, 0x8F, 0x8B, 0x43, 0x74, 0x94, 0x34, 0x1D, 0x46, 0xC9, 0xBE, 0xFF, 0xBD }
-PBL_APP_INFO(MY_UUID,
-    "Pop Clock", "qni.me",
-    1, 0, /* App version */
-    RESOURCE_ID_IMAGE_MENU_ICON,
-    APP_INFO_WATCH_FACE);
-
-// Here's the customizations.  If you want to undefine, add "_" as a suffix
-
-#define INVERT_COLORS
-
-#define SHOW_DATE_
-#define SHOW_SECONDS_
-
-#define POP_NUMBERS
+// Options should be set in wscript via ctx.define("$1", 1) under configure
+// Customization options available:
+// INVERT_COLORS
+// SHOW_DATE
+// SHOW_SECONDS
+// POP_NUMBERS
 
 // Code goes here
 
@@ -67,16 +56,16 @@ short DATE_H_OFFSET = 0;
 short TIME_H_OFFSET = 0;
 short SECS_H_OFFSET = 0;
 
-Window window;
+Window *window;
 
-Layer time_layer;
-
-AppContextRef context;
+Layer *time_layer;
 
 // Definition of the shapes of the numbers
 
 #define NUM_LENGTH 11
 #define NUM_WIDTH 21
+
+#define REFRESH_RATE 25
 
 const short numbers[NUM_LENGTH][NUM_WIDTH] = {
   // 0
@@ -173,9 +162,11 @@ typedef struct {
 
 ParticleQ particles;
 
-AppTimerHandle particle_timer_handle = APP_TIMER_INVALID_HANDLE;
+AppTimer* particle_timer = NULL;
 
 #define COOKIE_PARTICLE_TIMER 1
+
+void handle_timer(void *data);
 
 void particle_q_push(Particle p) {
 
@@ -201,8 +192,8 @@ void particle_q_push(Particle p) {
   particles.contents[new_index] = p;
   particles.count++;
 
-  if(particle_timer_handle == APP_TIMER_INVALID_HANDLE) {
-    particle_timer_handle = app_timer_send_event(context, 20, COOKIE_PARTICLE_TIMER);
+  if(particle_timer == NULL) {
+    particle_timer = app_timer_register(REFRESH_RATE, handle_timer, NULL);
   }
 
 }
@@ -223,12 +214,12 @@ void push_popped_particles(unsigned short x, unsigned short y, short prevNumber,
 
     if(!found) {
       // APP_LOG(APP_LOG_LEVEL_DEBUG, "%u is missing", numbers[prevNumber][i]);
-      
+
       int dx = x + (numbers[prevNumber][i] % 4) * DOT_PITCH;
       int dy = y + (numbers[prevNumber][i] / 4) * DOT_PITCH;
 
       particle_q_push((Particle) {.x = dx, .y = dy});
-      
+
     }
   }
 }
@@ -248,7 +239,7 @@ unsigned short get_display_hour(unsigned short hour) {
 
 // Pebble drawing callbacks
 
-PblTm stored_time_no_flickering;
+struct tm *stored_time_no_flickering;
 
 // The different widths require a little fudge to ensure they're centered
 // Time format     - Columns - Total width - Offset to center
@@ -259,7 +250,7 @@ PblTm stored_time_no_flickering;
 
 void nudge_h_offset() {
 
-  short display_hour = get_display_hour(stored_time_no_flickering.tm_hour);
+  short display_hour = get_display_hour(stored_time_no_flickering->tm_hour);
   if(clock_is_24h_style()) {
     if(TIME_H_OFFSET > 0) TIME_H_OFFSET--;
     if(TIME_H_OFFSET < 0) TIME_H_OFFSET++;
@@ -278,7 +269,7 @@ void nudge_h_offset() {
 
 void set_h_offset() {
 
-  short display_hour = get_display_hour(stored_time_no_flickering.tm_hour);
+  short display_hour = get_display_hour(stored_time_no_flickering->tm_hour);
   if(clock_is_24h_style()) {
     TIME_H_OFFSET = 0;
   } else if(display_hour == 1) {
@@ -288,29 +279,29 @@ void set_h_offset() {
   } else {
     TIME_H_OFFSET = -11;
   }
-  
+
 }
 
-void time_layer_update_callback(Layer *me, GContext* ctx) {
+void time_layer_update_callback(Layer *me, GContext *ctx) {
 
-  PblTm t = stored_time_no_flickering;
+  struct tm *t = stored_time_no_flickering;
 
-  unsigned short display_hour = get_display_hour(t.tm_hour);
+  unsigned short display_hour = get_display_hour(t->tm_hour);
 
   if(display_hour/10 > 0 || clock_is_24h_style()) {
     draw_num(ctx, 3 + TIME_H_OFFSET, TIME_V_OFFSET, display_hour/10);
   }
   draw_num(ctx, 36 + TIME_H_OFFSET, TIME_V_OFFSET, display_hour%10);
 
-  draw_num(ctx, 81 + TIME_H_OFFSET, TIME_V_OFFSET, t.tm_min/10);
-  draw_num(ctx, 114 + TIME_H_OFFSET, TIME_V_OFFSET, t.tm_min%10);
+  draw_num(ctx, 81 + TIME_H_OFFSET, TIME_V_OFFSET, t->tm_min/10);
+  draw_num(ctx, 114 + TIME_H_OFFSET, TIME_V_OFFSET, t->tm_min%10);
 
 #ifdef SHOW_SECONDS
-    draw_num(ctx, 42, SECS_V_OFFSET, t.tm_sec/10);
-    draw_num(ctx, 75, SECS_V_OFFSET, t.tm_sec%10);
+  draw_num(ctx, 42, SECS_V_OFFSET, t->tm_sec/10);
+  draw_num(ctx, 75, SECS_V_OFFSET, t->tm_sec%10);
 #endif
 
-  if(stored_time_no_flickering.tm_sec % 4 < 2) {
+  if(t->tm_sec % 4 < 2) {
     draw_dot(ctx, 69 + TIME_H_OFFSET, TIME_V_OFFSET + 14);
     draw_dot(ctx, 69 + TIME_H_OFFSET, TIME_V_OFFSET + 28);
   }
@@ -322,42 +313,43 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
 
 }
 
-void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
+void handle_second_tick(struct tm *tick_time, TimeUnits units_changed) {
 
-  get_time(&stored_time_no_flickering);  
+  time_t now = time(NULL);
+  stored_time_no_flickering = localtime(&now);
 
-  if(stored_time_no_flickering.tm_sec % 4 == 2) {
+  if(stored_time_no_flickering->tm_sec % 4 == 2) {
     particle_q_push((Particle) {.x = 69 + TIME_H_OFFSET, .y = TIME_V_OFFSET + 14});
     particle_q_push((Particle) {.x = 69 + TIME_H_OFFSET, .y = TIME_V_OFFSET + 28});
   }
 
 #ifdef SHOW_SECONDS
-    push_popped_particles(75, SECS_V_OFFSET, (t->tick_time->tm_sec+9)%10, t->tick_time->tm_sec%10);
+  push_popped_particles(75, SECS_V_OFFSET, (tick_time->tm_sec+9)%10, tick_time->tm_sec%10);
 #endif
 
-  if(t->tick_time->tm_sec%10 != 0) {
+  if(tick_time->tm_sec%10 != 0) {
     goto end;
   }
 
 #ifdef SHOW_SECONDS
-    push_popped_particles(42, SECS_V_OFFSET, (t->tick_time->tm_sec/10 + 9)%10, t->tick_time->tm_sec/10);
+  push_popped_particles(42, SECS_V_OFFSET, (tick_time->tm_sec/10 + 9)%10, tick_time->tm_sec/10);
 #endif
 
-  if(t->tick_time->tm_sec/10 != 0) {
+  if(tick_time->tm_sec/10 != 0) {
     goto end;
   }
-  push_popped_particles(114 + TIME_H_OFFSET, TIME_V_OFFSET, (t->tick_time->tm_min+9)%10, t->tick_time->tm_min%10);
+  push_popped_particles(114 + TIME_H_OFFSET, TIME_V_OFFSET, (tick_time->tm_min+9)%10, tick_time->tm_min%10);
 
-  if(t->tick_time->tm_min%10 != 0) {
+  if(tick_time->tm_min%10 != 0) {
     goto end;
   }
-  push_popped_particles(81 + TIME_H_OFFSET, TIME_V_OFFSET, (t->tick_time->tm_min/10 + 9)%10, t->tick_time->tm_min/10);
+  push_popped_particles(81 + TIME_H_OFFSET, TIME_V_OFFSET, (tick_time->tm_min/10 + 9)%10, tick_time->tm_min/10);
 
-  if(t->tick_time->tm_min/10 != 0) {
+  if(tick_time->tm_min/10 != 0) {
     goto end;
   }
 
-  unsigned short display_hour = get_display_hour(t->tick_time->tm_hour);          
+  unsigned short display_hour = get_display_hour(tick_time->tm_hour);          
 
   if(clock_is_24h_style() || display_hour != 1) {
     push_popped_particles(36 + TIME_H_OFFSET, TIME_V_OFFSET, (display_hour+9)%10, display_hour%10);
@@ -365,7 +357,7 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
     push_popped_particles(36 + TIME_H_OFFSET, TIME_V_OFFSET, 2, 1);
   }
 
-  if(clock_is_24h_style() && t->tick_time->tm_hour%10 != 0) {
+  if(clock_is_24h_style() && tick_time->tm_hour%10 != 0) {
     goto end;
   }
 
@@ -374,90 +366,106 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   }
 
   if(clock_is_24h_style()) {
-    push_popped_particles(3 + TIME_H_OFFSET, TIME_V_OFFSET, (t->tick_time->tm_hour/10+9)%10, t->tick_time->tm_hour/10);
+    push_popped_particles(3 + TIME_H_OFFSET, TIME_V_OFFSET, (tick_time->tm_hour/10+9)%10, tick_time->tm_hour/10);
   } else {
     push_popped_particles(3 + TIME_H_OFFSET, TIME_V_OFFSET, 1, 10);  // Hack to get the full digit to drop
   }
 
 end:
-  layer_mark_dirty(&time_layer);
+  layer_mark_dirty(time_layer);
 
 }
 
-void handle_init(AppContextRef ctx) {
+void handle_timer(void *data) {
 
-  get_time(&stored_time_no_flickering);  
-  set_h_offset();
+  bool keepGoing = false;
+  for(int i=0; i<particles.count; i++) {
+    Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
 
-  window_init(&window, "Pop Clock");
-  window_stack_push(&window, true /* Animated */);
-
-  window_set_background_color(&window, COLOR_BACKGROUND);
-
-  layer_init(&time_layer, window.layer.frame);
-  time_layer.update_proc = &time_layer_update_callback;
-  layer_add_child(&window.layer, &time_layer);
-
-  context = ctx;
-
-}
-
-void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
-  
-  if(cookie == COOKIE_PARTICLE_TIMER) {
-
-    bool keepGoing = false;
-    for(int i=0; i<particles.count; i++) {
-      Particle *p = &particles.contents[(i + particles.front) % MAX_PARTICLES];
-
-      if(p->active > 0) {
-        p->active--;
-        keepGoing = true;
-        continue;
-      }
-
-      p->x += p->dx;
-      p->y += p->dy;
-
-      if(p->x < 0 || p->x >= 144 - DOT_PITCH) {
-        p->x = max(0, min(p->x, 144 - DOT_PITCH));
-        p->dx = -p->dx;
-      }
-
-      p->y = max(0, p->y);
-
-      p->dy += 0.3;
-
-      if(p->y < 168) {
-        keepGoing = true;
-      }
+    if(p->active > 0) {
+      p->active--;
+      keepGoing = true;
+      continue;
     }
-    
-    nudge_h_offset();
 
-    layer_mark_dirty(&time_layer);
+    p->x += p->dx;
+    p->y += p->dy;
 
-    if(keepGoing) {
-      particle_timer_handle = app_timer_send_event(context, 20, COOKIE_PARTICLE_TIMER);
-    } else {
-      particle_timer_handle = APP_TIMER_INVALID_HANDLE;
-      particles.count = 0;
+    if(p->x < 0 || p->x >= 144 - DOT_PITCH) {
+      p->x = max(0, min(p->x, 144 - DOT_PITCH));
+      p->dx = -p->dx;
     }
+
+    p->y = max(0, p->y);
+
+    p->dy += 0.3;
+
+    if(p->y < 168) {
+      keepGoing = true;
+    }
+  }
+
+  nudge_h_offset();
+
+  layer_mark_dirty(time_layer);
+
+  if(keepGoing) {
+    particle_timer = app_timer_register(REFRESH_RATE, handle_timer, NULL);
+  } else {
+    particle_timer = NULL;
+    particles.count = 0;
   }
 
 }
 
-void pbl_main(void *params) {
+static void window_load(Window *w) {
 
-  PebbleAppHandlers handlers = {
-    .init_handler = &handle_init,
-    .timer_handler = &handle_timer,
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
 
-    .tick_info = {
-      .tick_handler = &handle_second_tick,
-      .tick_units = SECOND_UNIT
-    }
-  };
-  app_event_loop(params, &handlers);
+  time_layer = layer_create(bounds);
+  layer_set_update_proc(time_layer, time_layer_update_callback);
+  layer_add_child(window_layer, time_layer);
+
+}
+
+static void window_unload(Window *w) {
+
+  layer_destroy(time_layer);
+
+}
+
+static void init(void) {
+
+  time_t now = time(NULL);
+  stored_time_no_flickering = localtime(&now);
+  set_h_offset();
+
+  window = window_create();
+  window_set_window_handlers(window, (WindowHandlers) {
+    .load = window_load,
+    .unload = window_unload,
+  });
+
+  window_set_background_color(window, COLOR_BACKGROUND);
+
+  window_stack_push(window, true /* Animated */);
+
+  tick_timer_service_subscribe(SECOND_UNIT, handle_second_tick);  
+
+}
+
+static void deinit(void) {
+
+  tick_timer_service_unsubscribe();
+  window_destroy(window);
+
+}
+
+int main(void) {
+
+  init();
+  app_event_loop();
+  deinit();
 
 }
