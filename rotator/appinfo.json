@@ -1,0 +1,17 @@
+{
+  "uuid": "0dba363f-8e94-48cb-b2d9-2034f1033cd5",
+  "shortName": "rotator",
+  "longName": "rotator",
+  "companyName": "MakeAwesomeHappen",
+  "versionCode": 1,
+  "versionLabel": "1.0.0",
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {
+    "dummy": 0
+  },
+  "resources": {
+    "media": []
+  }
+}

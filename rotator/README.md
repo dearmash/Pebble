@@ -1,0 +1,6 @@
+Rotator
+=======
+
+This is just a simple example of how cool it would be, but how difficult it is, to have text rotate around some point...
+
+It would have been much easier in 1.x SDK because bitmap_rotate was still available... Not anymore...
