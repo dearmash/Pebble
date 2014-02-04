@@ -15,6 +15,26 @@
       "media": [
       {
         "type": "png",
+        "name": "BACKGROUND",
+        "file": "images/background.png"
+      },
+      {
+        "type": "png",
+        "name": "FOREGROUND",
+        "file": "images/foreground.png"
+      },
+      {
+        "type": "png",
+        "name": "HOURS",
+        "file": "images/hours.png"
+      },
+      {
+        "type": "png",
+        "name": "MINUTES",
+        "file": "images/minutes.png"
+      },
+      {
+        "type": "png",
         "name": "IMAGE_0",
         "file": "images/digits/0.png"
       },
