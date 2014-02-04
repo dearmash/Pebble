@@ -20,11 +20,6 @@
       },
       {
         "type": "png",
-        "name": "FOREGROUND",
-        "file": "images/foreground.png"
-      },
-      {
-        "type": "png",
         "name": "HOURS",
         "file": "images/hours.png"
       },
@@ -32,6 +27,16 @@
         "type": "png",
         "name": "MINUTES",
         "file": "images/minutes.png"
+      },
+      {
+        "type": "png",
+        "name": "FOREGROUND",
+        "file": "images/foreground.png"
+      },
+      {
+        "type": "png",
+        "name": "DATE",
+        "file": "images/date.png"
       },
       {
         "type": "png",
