@@ -1,0 +1,168 @@
+{
+  "uuid": "a8141d86-005e-4e11-b16c-b4e1bc4f1a5d",
+    "shortName": "wheel",
+    "longName": "wheel",
+    "companyName": "MakeAwesomeHappen",
+    "versionCode": 1,
+    "versionLabel": "1.0.0",
+    "watchapp": {
+      "watchface": false
+    },
+    "appKeys": {
+      "dummy": 0
+    },
+    "resources": {
+      "media": [
+      {
+        "type": "png",
+        "name": "IMAGE_0",
+        "file": "images/digits/0.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_1",
+        "file": "images/digits/1.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_2",
+        "file": "images/digits/2.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_3",
+        "file": "images/digits/3.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_4",
+        "file": "images/digits/4.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_5",
+        "file": "images/digits/5.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_6",
+        "file": "images/digits/6.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_7",
+        "file": "images/digits/7.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_8",
+        "file": "images/digits/8.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_9",
+        "file": "images/digits/9.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_0_BIG",
+        "file": "images/digits_large/0.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_1_BIG",
+        "file": "images/digits_large/1.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_2_BIG",
+        "file": "images/digits_large/2.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_3_BIG",
+        "file": "images/digits_large/3.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_4_BIG",
+        "file": "images/digits_large/4.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_5_BIG",
+        "file": "images/digits_large/5.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_6_BIG",
+        "file": "images/digits_large/6.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_7_BIG",
+        "file": "images/digits_large/7.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_8_BIG",
+        "file": "images/digits_large/8.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_9_BIG",
+        "file": "images/digits_large/9.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_0_SMALL",
+        "file": "images/digits_small/0.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_1_SMALL",
+        "file": "images/digits_small/1.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_2_SMALL",
+        "file": "images/digits_small/2.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_3_SMALL",
+        "file": "images/digits_small/3.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_4_SMALL",
+        "file": "images/digits_small/4.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_5_SMALL",
+        "file": "images/digits_small/5.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_6_SMALL",
+        "file": "images/digits_small/6.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_7_SMALL",
+        "file": "images/digits_small/7.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_8_SMALL",
+        "file": "images/digits_small/8.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_9_SMALL",
+        "file": "images/digits_small/9.png"
+      }
+      ]
+    }
+}
